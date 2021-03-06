@@ -23,18 +23,19 @@ void terminal_writechar(char c, char colour)
 {
     if (c == '\n')
     {
-        terminal_row += 1;
+        terminal_row++;
         terminal_col = 0;
         return;
     }
 
     terminal_putchar(terminal_col, terminal_row, c, colour);
-    terminal_col += 1;
+    terminal_col++;
     if (terminal_col >= VGA_WIDTH)
     {
         terminal_col = 0;
-        terminal_row += 1;
+        terminal_row++;
     }
+    return;
 }
 void terminal_initialize()
 {
@@ -73,7 +74,7 @@ void print(const char *str)
 void kernel_main()
 {
     terminal_initialize();
-    print("Hello world!\ntest");
+    print("Hello World!!\n");
 
     // Initialize the heap
     kheap_init();

@@ -22,21 +22,22 @@ step2:
     mov sp, 0x7c00
     sti ; Enables Interrupts
 
-.load_protected:
-    cli
+.load_protected: 
+    cli     ;Clear Interupts
     lgdt[gdt_descriptor]
     mov eax, cr0
     or eax, 0x1
-    mov cr0, eax
+    mov cr0, eax  ; Reset register
     jmp CODE_SEG:load32
     
 ; GDT
 gdt_start:
 gdt_null:
+; Just a Null Descripter
     dd 0x0
     dd 0x0
 
-; offset 0x8
+; offset 0x8 and these are the deafault values
 gdt_code:     ; CS SHOULD POINT TO THIS
     dw 0xffff ; Segment limit first 0-15 bits
     dw 0      ; Base first 0-15 bits
@@ -45,7 +46,7 @@ gdt_code:     ; CS SHOULD POINT TO THIS
     db 11001111b ; High 4 bit flags and the low 4 bit flags
     db 0        ; Base 24-31 bits
 
-; offset 0x10
+; offset 0x10 for data segment
 gdt_data:      ; DS, SS, ES, FS, GS
     dw 0xffff ; Segment limit first 0-15 bits
     dw 0      ; Base first 0-15 bits
@@ -57,7 +58,7 @@ gdt_data:      ; DS, SS, ES, FS, GS
 gdt_end:
 
 gdt_descriptor:
-    dw gdt_end - gdt_start-1
+    dw gdt_end - gdt_start-1 ;To get GDT size
     dd gdt_start
  
  [BITS 32]
@@ -69,7 +70,7 @@ gdt_descriptor:
     jmp CODE_SEG:0x0100000
 
 ata_lba_read:
-    mov ebx, eax, ; Backup the LBA
+    mov ebx, eax, ; Backup the LBA Logical Block Addressing (PC BIOS Mode)
     ; Send the highest 8 bits of the lba to hard disk controller
     shr eax, 24
     or eax, 0xE0 ; Select the  master drive

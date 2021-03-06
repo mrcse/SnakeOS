@@ -12,7 +12,7 @@ extern void no_interrupt();
 
 void int21h_handler()
 {
-    print("Keyboard pressed!\n");
+    print("Keyboard Key pressed!\n");
     outb(0x20, 0x20);
 }
 
@@ -23,7 +23,7 @@ void no_interrupt_handler()
 
 void idt_zero()
 {
-    print("Divide by zero error\n");
+    print("Divide by zero error\n"); //Checking Error as in vector Tabel in real mode
 }
 
 void idt_set(int interrupt_no, void* address)
@@ -32,7 +32,7 @@ void idt_set(int interrupt_no, void* address)
     desc->offset_1 = (uint32_t) address & 0x0000ffff;
     desc->selector = KERNEL_CODE_SELECTOR;
     desc->zero = 0x00;
-    desc->type_attr = 0xEE;
+    desc->type_attr = 0xEE;       //Explain in L-13 00:10:00
     desc->offset_2 = (uint32_t) address >> 16;
 }
 
@@ -49,7 +49,7 @@ void idt_init()
 
 
     idt_set(0, idt_zero);
-    idt_set(0x21, int21h);
+    idt_set(0x21, int21h);  //0x20 for keyboard interrupt once
 
     // Load the interrupt descriptor table
     idt_load(&idtr_descriptor);
