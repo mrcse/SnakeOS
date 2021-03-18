@@ -24,7 +24,7 @@ int diskstreamer_seek(struct disk_stream* stream, int pos)
 int diskstreamer_read(struct disk_stream* stream, void* out, int total)
 {
     int sector = stream->pos / SNAKEOS_SECTOR_SIZE;
-    int offset = stream->pos % SNAKEOS_SECTOR_SIZE;
+    int offset = stream->pos % SNAKEOS_SECTOR_SIZE; // offset
     char buf[SNAKEOS_SECTOR_SIZE];
 
     int res = disk_read_block(stream->disk, sector, 1, buf);
