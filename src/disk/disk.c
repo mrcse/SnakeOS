@@ -5,7 +5,7 @@
 #include "memory/memory.h"
 
 struct disk disk;
-int disk_read_sector(int lba, int total, void* buf)  //lab is logical address
+int disk_read_sector(int lba, int total, void* buf)  //lba is logical address
 {
     outb(0x1F6, (lba >> 24) | 0xE0);
     outb(0x1F2, total);
@@ -18,7 +18,7 @@ int disk_read_sector(int lba, int total, void* buf)  //lab is logical address
     for (int b = 0; b < total; b++)
     {
         // Wait for the buffer to be ready
-        char c = insb(0x1F7);
+        char c = insb(0x1F7);  // port number from where we are reading
         while(!(c & 0x08))
         {
             c = insb(0x1F7);
@@ -34,7 +34,7 @@ int disk_read_sector(int lba, int total, void* buf)  //lab is logical address
     }
     return 0;
 }
-
+// not seaching in real just init and set sectors
 void disk_search_and_init()
 {
     memset(&disk, 0, sizeof(disk));
