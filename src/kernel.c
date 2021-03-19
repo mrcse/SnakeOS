@@ -91,7 +91,7 @@ void kernel_main()
     // Enable paging
     enable_paging();
 //#########################################################
-//            PAGINF TESTING
+//            PAGING TESTING
     // char * ptr2 = (char*) 0x1000;
     // ptr2[0] = 'A';
     // ptr2[1] = 'B';
