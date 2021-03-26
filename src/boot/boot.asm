@@ -4,11 +4,32 @@ BITS 16
 CODE_SEG equ gdt_code - gdt_start
 DATA_SEG equ gdt_data - gdt_start
 
-_start:
-    jmp short start
-    nop
 
- times 33 db 0
+jmp short start
+nop
+
+; FAT16 Header
+OEMIdentifier           db 'SNAKEOS '
+BytesPerSector          dw 0x200
+SectorsPerCluster       db 0x80
+ReservedSectors         dw 200
+FATCopies               db 0x02
+RootDirEntries          dw 0x40
+NumSectors              dw 0x00
+MediaType               db 0xF8
+SectorsPerFat           dw 0x100
+SectorsPerTrack         dw 0x20
+NumberOfHeads           dw 0x40
+HiddenSectors           dd 0x00
+SectorsBig              dd 0x773594
+
+; Extended BPB (Dos 4.0)
+DriveNumber             db 0x80
+WinNTBit                db 0x00
+Signature               db 0x29
+VolumeID                dd 0xD105
+VolumeIDString          db 'SNAKEOS BOO'
+SystemIDString          db 'FAT16   '
  
 start:
     jmp 0:step2
@@ -22,22 +43,21 @@ step2:
     mov sp, 0x7c00
     sti ; Enables Interrupts
 
-.load_protected: 
-    cli     ;Clear Interupts
+.load_protected:
+    cli
     lgdt[gdt_descriptor]
     mov eax, cr0
     or eax, 0x1
-    mov cr0, eax  ; Reset register
+    mov cr0, eax
     jmp CODE_SEG:load32
     
 ; GDT
 gdt_start:
 gdt_null:
-; Just a Null Descripter
     dd 0x0
     dd 0x0
 
-; offset 0x8 and these are the deafault values
+; offset 0x8
 gdt_code:     ; CS SHOULD POINT TO THIS
     dw 0xffff ; Segment limit first 0-15 bits
     dw 0      ; Base first 0-15 bits
@@ -46,7 +66,7 @@ gdt_code:     ; CS SHOULD POINT TO THIS
     db 11001111b ; High 4 bit flags and the low 4 bit flags
     db 0        ; Base 24-31 bits
 
-; offset 0x10 for data segment
+; offset 0x10
 gdt_data:      ; DS, SS, ES, FS, GS
     dw 0xffff ; Segment limit first 0-15 bits
     dw 0      ; Base first 0-15 bits
@@ -58,7 +78,7 @@ gdt_data:      ; DS, SS, ES, FS, GS
 gdt_end:
 
 gdt_descriptor:
-    dw gdt_end - gdt_start-1 ;To get GDT size
+    dw gdt_end - gdt_start-1
     dd gdt_start
  
  [BITS 32]
@@ -70,7 +90,7 @@ gdt_descriptor:
     jmp CODE_SEG:0x0100000
 
 ata_lba_read:
-    mov ebx, eax, ; Backup the LBA Logical Block Addressing (PC BIOS Mode)
+    mov ebx, eax, ; Backup the LBA
     ; Send the highest 8 bits of the lba to hard disk controller
     shr eax, 24
     or eax, 0xE0 ; Select the  master drive

@@ -1,16 +1,16 @@
 #include "pparser.h"
 #include "kernel.h"
+#include "string/string.h"
 #include "memory/heap/kheap.h"
 #include "memory/memory.h"
 #include "status.h"
-#include "string/string.h"
+
 static int pathparser_path_valid_format(const char* filename)
 {
     int len = strnlen(filename, SNAKEOS_MAX_PATH);
     return (len >= 3 && isdigit(filename[0]) && memcmp((void*)&filename[1], ":/", 2) == 0);
 }
 
-// Extract File Number from Path e.g 0:/text.h -> text.h
 static int pathparser_get_drive_by_path(const char** path)
 {
     if(!pathparser_path_valid_format(*path))
@@ -33,7 +33,7 @@ static struct path_root* pathparser_create_root(int drive_number)
     return path_r;
 }
 
-// return like this {bin}/{os.bin}
+
 static const char* pathparser_get_path_part(const char** path)
 {
     char* result_path_part = kzalloc(SNAKEOS_MAX_PATH);
@@ -129,7 +129,7 @@ struct path_root* pathparser_parse(const char* path, const char* current_directo
     {
         part = pathparser_parse_path_part(part, &tmp_path);
     }
-    
+
 out:
     return path_root;
 }

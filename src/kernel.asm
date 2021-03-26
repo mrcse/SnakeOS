@@ -1,6 +1,6 @@
 [BITS 32]
-
 global _start
+global kernel_registers
 extern kernel_main
 
 CODE_SEG equ 0x08
@@ -32,11 +32,18 @@ _start:
     out 0x21, al
     ; End remap of the master PIC
 
-    ; Enable interrupts
-    sti
 
     call kernel_main
 
     jmp $
+
+kernel_registers:
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov gs, ax
+    mov fs, ax
+    ret
+
 
 times 512-($ - $$) db 0

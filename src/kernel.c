@@ -2,12 +2,23 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "idt/idt.h"
-#include "string/string.h"
 #include "memory/heap/kheap.h"
 #include "memory/paging/paging.h"
 #include "disk/disk.h"
-#include "disk/streamer.h"
+#include "string/string.h"
+#include "fs/file.h"
 #include "fs/pparser.h"
+#include "disk/streamer.h"
+#include "memory/memory.h"
+#include "gdt/gdt.h"
+#include "config.h"
+#include "task/tss.h"
+#include "task/task.h"
+#include "task/process.h"
+#include "status.h"
+#include "isr80h/isr80h.h"
+#include "keyboard/keyboard.h"
+
 
 uint16_t* video_mem = 0;
 uint16_t terminal_row = 0;
@@ -23,23 +34,46 @@ void terminal_putchar(int x, int y, char c, char colour)
     video_mem[(y * VGA_WIDTH) + x] = terminal_make_char(c, colour);
 }
 
+void terminal_backspace()
+{
+    if (terminal_row == 0 && terminal_col == 0)
+    {
+        return;
+    }
+
+    if (terminal_col == 0)
+    {
+        terminal_row -= 1;
+        terminal_col = VGA_WIDTH;
+    }
+
+    terminal_col -=1;
+    terminal_writechar(' ', 15);
+    terminal_col -=1;
+}
+
 void terminal_writechar(char c, char colour)
 {
     if (c == '\n')
     {
-        terminal_row++;
+        terminal_row += 1;
         terminal_col = 0;
         return;
     }
 
+    if (c == 0x08)
+    {
+        terminal_backspace();
+        return;
+    }
+
     terminal_putchar(terminal_col, terminal_row, c, colour);
-    terminal_col++;
+    terminal_col += 1;
     if (terminal_col >= VGA_WIDTH)
     {
         terminal_col = 0;
-        terminal_row++;
+        terminal_row += 1;
     }
-    return;
 }
 void terminal_initialize()
 {
@@ -55,6 +89,7 @@ void terminal_initialize()
     }
 }
 
+
 void print(const char *str)
 {
     size_t len = strlen(str);
@@ -65,13 +100,48 @@ void print(const char *str)
 }
 
 static struct paging_4gb_chunk* kernel_chunk = 0;
+
+void panic(const char* msg)
+{
+    print(msg);
+    while(1) {}
+}
+
+
+void kernel_page()
+{
+    kernel_registers();
+    paging_switch(kernel_chunk);
+}
+
+struct tss tss;
+
+struct gdt gdt_real[SNAKEOS_TOTAL_GDT_SEGMENTS];
+struct gdt_structured gdt_structured[SNAKEOS_TOTAL_GDT_SEGMENTS] = {
+    {.base = 0x00, .limit = 0x00, .type = 0x00},                // NULL Segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0x9a},           // Kernel code segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0x92},            // Kernel data segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0xf8},              // User code segment
+    {.base = 0x00, .limit = 0xffffffff, .type = 0xf2},             // User data segment
+    {.base = (uint32_t)&tss, .limit=sizeof(tss), .type = 0xE9}      // TSS Segment
+};
+
+
 void kernel_main()
 {
     terminal_initialize();
-    print("Hello World!!\n");
+
+    memset(gdt_real, 0x00, sizeof(gdt_real));
+    gdt_structured_to_gdt(gdt_real, gdt_structured, SNAKEOS_TOTAL_GDT_SEGMENTS);
+
+    // Load the gdt
+    gdt_load(gdt_real, sizeof(gdt_real));
 
     // Initialize the heap
     kheap_init();
+
+    // Initialize filesystems
+    fs_init();
 
     // Search and initialize the disks
     disk_search_and_init();
@@ -79,43 +149,45 @@ void kernel_main()
     // Initialize the interrupt descriptor table
     idt_init();
 
+    // Setup the TSS
+    memset(&tss, 0x00, sizeof(tss));
+    tss.esp0 = 0x600000;
+    tss.ss0 = KERNEL_DATA_SELECTOR;
+
+    // Load the TSS
+    tss_load(0x28);
+
     // Setup paging
     kernel_chunk = paging_new_4gb(PAGING_IS_WRITEABLE | PAGING_IS_PRESENT | PAGING_ACCESS_FROM_ALL);
 
     // Switch to kernel paging chunk
-    paging_switch(paging_4gb_chunk_get_directory(kernel_chunk));
+    paging_switch(kernel_chunk);
 
-    // char * ptr = kzalloc(4096); 
-    // paging_set(paging_4gb_chunk_get_directory(kernel_chunk), (void*)0x1000, (uint32_t)ptr | PAGING_ACCESS_FROM_ALL | PAGING_IS_PRESENT | PAGING_IS_WRITEABLE);
 
     // Enable paging
     enable_paging();
-//#########################################################
-//            PAGING TESTING
-    // char * ptr2 = (char*) 0x1000;
-    // ptr2[0] = 'A';
-    // ptr2[1] = 'B';
-    // print(ptr2);
 
-    // print(ptr);
-    // e.g
-    // ptr = 0x100000 from kzalloc and we map 0x1000 to that
-    // the if we change 0x1000 then it will affect 0x100000 directly
-    // ptr  0x100000-> 0x100000
-    // ptr3 0x1000  -> 0x100000  
-//##########################################################
+    // Register the kernel commands
+    isr80h_register_commands();
+
+    // Initialize all the system keyboards
+    keyboard_init();
 
 
-    // Enable the system interrupts
-    enable_interrupts();
+    struct process* process = 0;
+    int res = process_load_switch("0:/shell.elf", &process);
+    if (res != SNAKEOS_ALL_OK)
+    {
+        panic("Failed to load shell.elf\n");
+    }
+    
+    struct command_argument argument;
+    strcpy(argument.argument, "Testing!");
+    argument.next = 0x00; 
 
-    // struct path_root* root_path = pathparser_parse("0:/bin/os.bin",NULL);
-    // if(root_path)
-    // {}
-    // struct disk_stream* stream = diskstreamer_new(0);
-    // diskstreamer_seek(stream, 0x201);
-    // unsigned char c = 0;
-    // diskstreamer_read(stream, &c, 1);
-    // while(1) {}
+    process_inject_arguments(process, &argument);
+    task_run_first_ever_task();
+
+    while(1) {}
 
 }

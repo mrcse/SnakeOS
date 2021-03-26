@@ -5,7 +5,7 @@
 #include "memory/memory.h"
 
 struct disk disk;
-int disk_read_sector(int lba, int total, void* buf)  //lba is logical address
+int disk_read_sector(int lba, int total, void* buf)
 {
     outb(0x1F6, (lba >> 24) | 0xE0);
     outb(0x1F2, total);
@@ -18,7 +18,7 @@ int disk_read_sector(int lba, int total, void* buf)  //lba is logical address
     for (int b = 0; b < total; b++)
     {
         // Wait for the buffer to be ready
-        char c = insb(0x1F7);  // port number from where we are reading
+        char c = insb(0x1F7);
         while(!(c & 0x08))
         {
             c = insb(0x1F7);
@@ -34,13 +34,14 @@ int disk_read_sector(int lba, int total, void* buf)  //lba is logical address
     }
     return 0;
 }
-// not seaching in real just init and set sectors
+
 void disk_search_and_init()
 {
     memset(&disk, 0, sizeof(disk));
     disk.type = SNAKEOS_DISK_TYPE_REAL;
     disk.sector_size = SNAKEOS_SECTOR_SIZE;
-    
+    disk.id = 0;
+    disk.filesystem = fs_resolve(&disk);
 }
 
 struct disk* disk_get(int index)
